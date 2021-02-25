@@ -5,7 +5,7 @@ Hash Code is a team programming competition, organized by Google, for students a
 ## Participants
 - [Odudimu Samuel(github@sirmeeLynx)](https://github.com/sirmeelynx)
 - [Ahmed Olanrewaju(github@ahmzyjazzy)](https://github.com/Ahmzyjazzy)
-- [(github@oluwasegunA)](https://github.com/OluwasegunA)
+- [Ariyo Oluwasegun(github@oluwasegunA)](https://github.com/OluwasegunA)
 
 # Problem Statement
 bla bla bla
