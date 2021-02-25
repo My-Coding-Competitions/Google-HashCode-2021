@@ -9,21 +9,21 @@ const fs = require('fs');
  * processes the extracted data and writes corresponding output into 
  * data/output folder.
  */
-const runTestCases = function (begin = 0, size = 5) {   
+const runTestCases = function (begin = 0, size = 5) {
     //register test cases here
-    let testCases = ['a_example.txt', 'b_read_on.txt', 'c_incunabula.txt', 
-                     'd_tough_choices.txt', 'e_so_many_books.txt',
-                     'f_Libraries_of_the_world.txt'
-                    ];
-                    
-    if(begin != 0 || size != 5) testCases = testCases.slice(begin,size);
-    
+    let testCases = ['a.txt', 'b.txt', 'c.txt',
+        'd.txt', 'e.txt',
+        'f.txt'
+    ];
+
+    if (begin != 0 || size != 5) testCases = testCases.slice(begin, size);
+
     //read testcase from file, process and write to Output
-    for(let test of testCases){
+    for (let test of testCases) {
         const _input = fs.readFileSync(`data/input/${test}`, 'utf8');
         const _output = processData(_input, test);
         fs.writeFileSync(`data/output/${test.replace('in', 'out')}`, _output);
-    }    
+    }
 }
 
 /**
@@ -33,7 +33,10 @@ const runTestCases = function (begin = 0, size = 5) {
  * @description parses space delimited strings into a list of integers
  */
 const strToArray = function (str) {
-    return str.split(' ').map(o => parseInt(o));
+    str = str.trim().replace("\r");
+    return str.split(' ').map(o =>
+        (!isNaN(o)) ? parseInt(o) : o
+    );
 }
 
 
@@ -51,7 +54,7 @@ const strToArray = function (str) {
  *) and noOfBookSignupDays
  *)processes and schedules books in order of priority
  */
-const processData = (input,test)=> {
+const processData = (input, test) => {
     const _datasets = input.split('\n');
     //begin parse data input into proper data structure for data-processing
     let dataStructure = parseDataSet(_datasets);
@@ -59,46 +62,36 @@ const processData = (input,test)=> {
 
     let result = [], outputFormat;
     //pass input into BusinessLogic (replace name as appropriate)
-    result = fnBusinessLogic(...dataStructure/*args*/);
+    result = fnTrafficSignalling(...dataStructure/*args*/);
 
-    const performance = resultPerformance(result,bookScores,maxScore);
-    console.log(performance);
+    const performance = resultPerformance(result);
+    //console.log(performance);
     outputFormat = formatOutputData(result);
     return outputFormat;
 }
 
 const parseDataSet = function (_datasets, cb) {
-    //let [noOfBooks, noOfLibrary, noOfScanningDays] = strToArray(_datasets[0]);
-    //let bookScores = strToArray(_datasets[1]);
-    //let libraries = [], currLine = 1;
-    //let maxScore = bookScores.reduce((a, b) => a + b);
+    let [durationOfSimulation, noOfIntersection, noOfStreets, noOfCars, CarBonus] = strToArray(_datasets[0]);
 
-    //for (let i = 0; i < noOfLibrary; i++) {
-    //    let [noOfBookSignupDays, noOfBookShippingDays] = strToArray(_datasets[currLine + 1]).slice(1, 3);
-    //    let books = strToArray(_datasets[currLine + 2]);
-    //    books = books.sort((a, b) => bookScores[b] - bookScores[a]);
-    //    let totalBooks = (noOfBookShippingDays * (noOfScanningDays - noOfBookSignupDays));
-    //    totalBooks = Math.min(books.length, totalBooks);
-    //    let bookWeight = books.slice(0, totalBooks).reduce((a, b, i) => ((i == 1) ? bookScores[a] : a) + bookScores[b]);
+    let streets = [], currLine = 1;
+    for (let i = 0; i < noOfStreets; i++) {
+        let streetArr = strToArray(_datasets[currLine++]);
+        let street = {
+            "INTERSECTION": [streetArr[0], streetArr[1]],
+            "NAME": streetArr[2],
+            "TIME_TAKEN": streetArr[3]
+        }
+        streets.push(street);
+    }
 
-    //    let bookDispatchRate = 1;
+    let carPaths = [];
+    for (let i = 0; i < noOfCars; i++) {
+        let carDescArr = strToArray(_datasets[currLine++]);
+        let PATHS = carDescArr.slice(1);
+        carPaths.push({ PATHS });
+    }
 
-    //    if (test == "f_Libraries_of_the_world.txt") bookDispatchRate = books.length;
-
-    //    let priority = (bookWeight * bookDispatchRate) / noOfBookSignupDays;
-
-    //    libraries.push({
-    //        "LIB_INDEX": i,
-    //        "BOOK_WEIGHT": bookWeight,
-    //        "PRIORITY": priority,
-    //        "BOOKS": books,
-    //        "NO_OF_SIGNUP_DAYS": noOfBookSignupDays,
-    //        "NO_OF_BOOKSHIP_PER_DAY": noOfBookShippingDays
-    //    });
-    //    currLine += 2;
-    //}
-
-    return [];
+    return [durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths];
 }
 
 /**
@@ -111,10 +104,11 @@ const parseDataSet = function (_datasets, cb) {
  * It compares scores of all books in the system(maxScore) to the overall score of books scanned(score).
  */
 const resultPerformance = function (result, /*args*/) {
-    let score = result.reduce((a, b, i) => 0/*define logic*/);
-    let maxScore = 0/*write maxScore Logic*/;
+    //let score = result.reduce((a, b, i) => 0/*define logic*/);
+    //let maxScore = 0/*write maxScore Logic*/;
 
-    return [score, maxScore, (score / maxScore) * 100];
+    //return [score, maxScore, (score / maxScore) * 100];
+    return [0, 0, 0];
 }
 
 /**
@@ -127,11 +121,16 @@ const resultPerformance = function (result, /*args*/) {
  * It compares scores of all books in the system(maxScore) to the overall score of books scanned(score).
  */
 const formatOutputData = function (result, /*args*/) {
-    outputFormat = [result.length];
+    let outputFormat = [result.length];
 
     for (let res of result) {
-        outputFormat.push(res.slice(0, 2).join(" "));
-        outputFormat.push(res[2].join(" "));
+        let { ID, STREETS } = res;
+        outputFormat.push(ID);
+        outputFormat.push(STREETS.length);
+        for (let street of STREETS) {
+            let { NAME, TIME_TAKEN } = street;
+            outputFormat.push(`${NAME} ${TIME_TAKEN}`);
+        }
     }
 
     return outputFormat.join("\n");
@@ -144,49 +143,31 @@ const formatOutputData = function (result, /*args*/) {
  * @returns {number[][]} - returns libraries, number of bookScanned in each library and the corresponding books.
  * @description Algorithm that schedules books for scanning.
  */
-const fnBusinessLogic = function (/*args*/) {
+const fnTrafficSignalling = function (durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths) {
     let result = [];
-    //let bookScanned = {}, scannedResult = {}, scannedLibrary = [];
-    //let lastSignupDay = -1;
-    
-    //Libraries = Libraries.sort((a, b) => (b.PRIORITY - a.PRIORITY));
+    let intersections = [
+        {
+            ID: 1,
+            STREETS: [
+                { "NAME": "rue-d-athenes", "TIME_TAKEN": 2 },
+                { "NAME": "rue-d-amsterdam", "TIME_TAKEN": 1 }
+            ]
+        },
+        {
+            ID: 0,
+            STREETS: [
+                { "NAME": "rue-de-londres", "TIME_TAKEN": 2 }
+            ]
+        },
+        {
+            ID: 2,
+            STREETS: [
+                { "NAME": "rue-de-moscou", "TIME_TAKEN": 1 }
+            ]
+        }
+    ];
 
-    //for (let lib of Libraries) {
-    //    let libIndex = lib.LIB_INDEX;
-    //    lastSignupDay += lib.NO_OF_SIGNUP_DAYS;
-    //    let shippingDay = lastSignupDay + 1;
-    //    let books = lib.BOOKS;
-
-    //    let noOfBooksPerDay = lib.NO_OF_BOOKSHIP_PER_DAY;
-    //    scannedResult[libIndex] = [];
-    //    scannedLibrary.push(libIndex);
-    //    while (shippingDay <= noOfScanningDays) {
-    //        let b, bookIndex = -1, lenBook = books.length;
-    //        for (b = 0; b < noOfBooksPerDay; b++) {
-    //            let book, isScanned;
-    //            do {
-    //                bookIndex++;
-    //                book = books[bookIndex];
-    //                isScanned = bookScanned[book];
-    //            }
-    //            while (isScanned && bookIndex < lenBook);
-    //            if (bookIndex == lenBook) break;
-    //            scannedResult[libIndex].push(book);
-    //            bookScanned[book] = true;
-    //        }
-    //        shippingDay++;
-    //    }
-
-    //    if (lastSignupDay >= noOfScanningDays) break;
-    //}
-
-
-    //let result = [];
-    //for (let lib of scannedLibrary) {
-    //    let bkScanned = scannedResult[lib];
-    //    if (bkScanned.length)
-    //    result.push([lib, bkScanned.length, bkScanned]);
-    //}
+    result = intersections;
 
     return result;
 }
@@ -194,4 +175,28 @@ const fnBusinessLogic = function (/*args*/) {
 //run test cases 
 console.clear();
 console.log("running.......");
-runTestCases(0,6);
+runTestCases(0, 1);
+
+
+// node.js get keypress
+var stdin = process.stdin;
+
+// without this, we would only get streams once enter is pressed
+//stdin.setRawMode( true );
+
+// resume stdin in the parent process (node app won't quit all by itself
+// unless an error or process.exit() happens)
+stdin.resume();
+// i don't want binary, do you?
+stdin.setEncoding('utf8');
+
+// on any data into stdin
+stdin.on('data', function (key) {
+    // ctrl-c ( end of text )
+    if (key === '\u0003') {
+        process.exit();
+    }
+
+    // write the key to stdout all normal like
+    // process.stdout.write( key );
+});
