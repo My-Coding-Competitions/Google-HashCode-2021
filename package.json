@@ -11,5 +11,8 @@
   "author": {
     "name": "Odudimu Samuel",
     "email": "blessedsamuelodu@gmail.com"
+  },
+  "dependencies": {
+    "data-structures": "^1.4.2"
   }
 }

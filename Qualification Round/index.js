@@ -74,6 +74,8 @@ const parseDataSet = function (_datasets, cb) {
     let [durationOfSimulation, noOfIntersection, noOfStreets, noOfCars, CarBonus] = strToArray(_datasets[0]);
 
     let streets = [], currLine = 1;
+    const intersections = new Array(noOfIntersection).fill(null);
+    const streetIndexByName = {};
     for (let i = 0; i < noOfStreets; i++) {
         let streetArr = strToArray(_datasets[currLine++]);
         let street = {
@@ -81,6 +83,17 @@ const parseDataSet = function (_datasets, cb) {
             "NAME": streetArr[2],
             "TIME_TAKEN": streetArr[3]
         }
+
+        streetIndexByName[street.NAME] = street;
+        //if (intersections[streetArr[0]] == null)
+        //    intersections[streetArr[0]] = { ID: streetArr[0], STREETS: [] };
+
+        if (intersections[streetArr[1]] == null)
+            intersections[streetArr[1]] = { ID: streetArr[1], STREETS: [] };
+
+        //intersections[streetArr[0]].STREETS.push(street);
+        intersections[streetArr[1]].STREETS.push(street);
+
         streets.push(street);
     }
 
@@ -91,7 +104,7 @@ const parseDataSet = function (_datasets, cb) {
         carPaths.push({ PATHS });
     }
 
-    return [durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths];
+    return [durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections, streetIndexByName];
 }
 
 /**
@@ -136,6 +149,95 @@ const formatOutputData = function (result, /*args*/) {
     return outputFormat.join("\n");
 }
 
+const fakeSimulation = function (durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections) {
+    let result = [];
+    let simulationTime = durationOfSimulation;
+    let i = 0;
+    while (simulationTime != 0) {
+        let len = intersections.length;
+        let intersection = Math.floor(Math.random() * len);
+        let objIntersection = intersections[intersection];
+        if (len === 0) break;
+
+        let streets = objIntersection.STREETS.sort((a, b) => a - b);
+        let streetLength = Math.floor(Math.random() * streets.length) + 1;
+
+        let streetSchedule = [];
+        for (let i = 0; i < streetLength; i++) {
+            let street = streets[i];
+            let _t = street.TIME_TAKEN;
+            //console.log(street);
+            let TIME_TAKEN = Math.floor(Math.random() * _t) + 1;
+
+            if (simulationTime < TIME_TAKEN)
+                TIME_TAKEN = simulationTime;
+
+            streetSchedule.push({ NAME: street.NAME, TIME_TAKEN });
+
+            simulationTime -= TIME_TAKEN;
+        }
+
+        result.push({
+            ID: objIntersection.ID,
+            STREETS: streetSchedule
+        });
+
+        if (++i == 1000) break;
+        intersections.splice(intersection, 1);
+        //console.log(simulationTime, result);
+    }
+
+    return result;
+}
+
+const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections, streetIndexByName) {
+    let simulationTime = 0;
+
+    //start with FCFS
+    let carIndex = 0;
+    let schedule = {};
+    while (simulationTime < durationOfSimulation) {
+        if (carIndex >= carPaths.length) break;
+
+        let car = carPaths[carIndex++];
+        let { PATHS } = car;
+        let streetIndex = 1;
+        let streetLength = PATHS.length;
+        for (streetIndex = 1; streetIndex < streetLength; streetIndex++) {
+            let street = PATHS[streetIndex];
+            let streetObj = streetIndexByName[street];
+
+            let { NAME, TIME_TAKEN, INTERSECTION } = streetObj;
+            let inComingJunction = INTERSECTION[1];
+            let streetInfo = { NAME, TIME_TAKEN };
+
+            let remainingTime = durationOfSimulation - simulationTime;
+
+            if (TIME_TAKEN > remainingTime)
+                TIME_TAKEN = remainingTime;
+
+            simulationTime += TIME_TAKEN;
+
+            if (!schedule[inComingJunction])
+                schedule[inComingJunction] = [];
+
+            schedule[inComingJunction].push(streetInfo);
+        }
+
+    }
+
+    let result = [], junction;
+    for (junction in schedule) {
+        let streetInfo = schedule[junction];
+        result.push({
+            "ID": junction,
+            "STREETS": streetInfo
+        });
+    }
+
+    return result;
+}
+
 /**
  * 
  * @param {Object[]} Libraries - A list of library(Hashmap).
@@ -143,31 +245,39 @@ const formatOutputData = function (result, /*args*/) {
  * @returns {number[][]} - returns libraries, number of bookScanned in each library and the corresponding books.
  * @description Algorithm that schedules books for scanning.
  */
-const fnTrafficSignalling = function (durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths) {
+const fnTrafficSignalling = function (durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections, streetIndexByName) {
     let result = [];
-    let intersections = [
-        {
-            ID: 1,
-            STREETS: [
-                { "NAME": "rue-d-athenes", "TIME_TAKEN": 2 },
-                { "NAME": "rue-d-amsterdam", "TIME_TAKEN": 1 }
-            ]
-        },
-        {
-            ID: 0,
-            STREETS: [
-                { "NAME": "rue-de-londres", "TIME_TAKEN": 2 }
-            ]
-        },
-        {
-            ID: 2,
-            STREETS: [
-                { "NAME": "rue-de-moscou", "TIME_TAKEN": 1 }
-            ]
-        }
-    ];
+    let simulationTime = durationOfSimulation;
+    let i = 0;
+    //console.log(JSON.stringify(intersections, null, 1), streets);
+   
+    result = fnTrafficSimulate(durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections, streetIndexByName);
 
-    result = intersections;
+    console.log(JSON.stringify(result, null, 2));
+
+    //let intersections = [
+    //    {
+    //        ID: 1,
+    //        STREETS: [
+    //            { "NAME": "rue-d-athenes", "TIME_TAKEN": 2 },
+    //            { "NAME": "rue-d-amsterdam", "TIME_TAKEN": 1 }
+    //        ]
+    //    },
+    //    {
+    //        ID: 0,
+    //        STREETS: [
+    //            { "NAME": "rue-de-londres", "TIME_TAKEN": 2 }
+    //        ]
+    //    },
+    //    {
+    //        ID: 2,
+    //        STREETS: [
+    //            { "NAME": "rue-de-moscou", "TIME_TAKEN": 1 }
+    //        ]
+    //    }
+    //];
+
+    //result = intersections;
 
     return result;
 }
@@ -175,8 +285,8 @@ const fnTrafficSignalling = function (durationOfSimulation, noOfIntersection, Ca
 //run test cases 
 console.clear();
 console.log("running.......");
-runTestCases(0, 1);
-
+runTestCases(0,1);
+console.log("done.");
 
 // node.js get keypress
 var stdin = process.stdin;
