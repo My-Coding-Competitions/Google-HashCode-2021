@@ -193,6 +193,15 @@ const fakeSimulation = function (durationOfSimulation, noOfIntersection, CarBonu
 const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections, streetIndexByName) {
     let simulationTime = 0;
 
+    carPaths.sort(function (a, b) {
+        const pathA = a.PATHS;
+        const pathB = b.PATHS;
+        const priorityA = pathA.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - pathA[0];
+        const priorityB = pathB.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - pathB[0];
+
+        return priorityA - priorityB;
+    });
+
     //start with FCFS
     let carIndex = 0;
     let schedule = {};
@@ -285,7 +294,7 @@ const fnTrafficSignalling = function (durationOfSimulation, noOfIntersection, Ca
 //run test cases 
 console.clear();
 console.log("running.......");
-runTestCases(0,1);
+runTestCases(0,6);
 console.log("done.");
 
 // node.js get keypress
