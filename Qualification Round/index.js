@@ -104,7 +104,7 @@ const parseDataSet = function (_datasets, cb) {
         let PATHS = carDescArr.slice(1);
         carPaths.push({ PATHS });
     }
-    
+
     return [durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections, streetIndexByName];
 }
 
@@ -156,6 +156,20 @@ const formatOutputData = function (result, /*args*/) {
     return outputFormat.join("\n");
 }
 
+const shuffle = function (array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        //uniform random probability
+        let j = Math.floor(Math.random() * (i + 1)); // random index from 0 to i
+
+        // swap elements array[i] and array[j]
+        // we use "destructuring assignment" syntax to achieve that
+        // you'll find more details about that syntax in later chapters
+        // same can be written as:
+        // let t = array[i]; array[i] = array[j]; array[j] = t
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
 const fakeSimulation = function (durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections) {
     let result = [];
     let simulationTime = durationOfSimulation;
@@ -198,36 +212,48 @@ const fakeSimulation = function (durationOfSimulation, noOfIntersection, CarBonu
 }
 
 const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections, streetIndexByName) {
-    let simulationTime = 0;
-    carPaths.sort(function (a, b) {
+    let simulationTime, schedule;
+
+    schedule = {};
+    simulationTime = 0;
+    let _carPaths = [...carPaths];
+    _carPaths.sort(function (a, b) {
         const pathA = a.PATHS;
         const pathB = b.PATHS;
-        const priorityA = pathA.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathA[0]].TIME_TAKEN;
-        const priorityB = pathB.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathB[0]].TIME_TAKEN;
+        //const priorityA = pathA.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathA[0]].TIME_TAKEN;
+        //const priorityB = pathB.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathB[0]].TIME_TAKEN;
 
-        return priorityA - priorityB;
+        //return priorityA - priorityB;
+        return pathA.length - pathB.length;
     });
 
     //start with FCFS
     let carIndex = 0;
-    let schedule = {};
+    let currentCarJourneyCompleted = false;
+    let carProcessed = [];
     while (simulationTime < durationOfSimulation) {
-        if (carIndex >= carPaths.length) break;
+        if (carIndex >= _carPaths.length) break;
 
-        let car = carPaths[carIndex++];
+        if (currentCarJourneyCompleted) {
+            carProcessed.push(carIndex);
+            currentCarJourneyCompleted = false;
+        }
+
+        let car = _carPaths[carIndex++];
         let { PATHS } = car;
         let streetIndex;
         let streetLength = PATHS.length;
         for (streetIndex = 0; streetIndex < streetLength - 1; streetIndex++) {
             if (simulationTime >= durationOfSimulation) break;
 
-           // console.log(simulationTime, durationOfSimulation);
+            // console.log(simulationTime, durationOfSimulation);
 
 
             let street = PATHS[streetIndex];
             let streetObj = streetIndexByName[street];
 
             let { NAME, TIME_TAKEN, INTERSECTION } = streetObj;
+            TIME_TAKEN = 1;
             let inComingJunction = INTERSECTION[1];
             let streetInfo = { NAME, TIME_TAKEN };
 
@@ -252,9 +278,12 @@ const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarB
                 schedule[inComingJunction].push(streetInfo);
 
         }
+
+        currentCarJourneyCompleted = true;
     }
 
-    console.log(`NO OF CARS PROCESSED => ${carIndex + 1}/${carPaths.length}`);
+    console.log(`NO OF CARS PROCESSED => ${carProcessed.length}/${carPaths.length}`, `SIMULATION RUN TIME => ${simulationTime}/${durationOfSimulation}`);
+
 
     let result = [], junction;
     for (junction in schedule) {
@@ -280,51 +309,17 @@ const fnTrafficSignalling = function (durationOfSimulation, noOfIntersection, Ca
     let simulationTime = durationOfSimulation;
     let i = 0;
     //console.log(JSON.stringify(intersections, null, 1), streets);
-   
+
     result = fnTrafficSimulate(durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections, streetIndexByName);
 
-    console.log(JSON.stringify(result, null, 2));
-
-    //let intersections = [
-    //    {
-    //        ID: 1,
-    //        STREETS: [
-    //            { "NAME": "rue-d-athenes", "TIME_TAKEN": 2 },
-    //            { "NAME": "rue-d-amsterdam", "TIME_TAKEN": 1 }
-    //        ]
-    //    },
-    //    {
-    //        ID: 0,
-    //        STREETS: [
-    //            { "NAME": "rue-de-londres", "TIME_TAKEN": 2 }
-    //        ]
-    //    },
-    //    {
-    //        ID: 2,
-    //        STREETS: [
-    //            { "NAME": "rue-de-moscou", "TIME_TAKEN": 1 }
-    //        ]
-    //    }
-    //];
-
-    //1
-    //1
-    //rue - d - amsterdam 1
-    //2
-    //1
-    //rue - de - moscou 3
-    //3
-    //1
-    //rue - de - rome 2
-    //result = intersections;
-
+    //console.log(JSON.stringify(result, null, 2));
     return result;
 }
 
 //run test cases 
 console.clear();
 console.log("running.......");
-runTestCases(0,6);
+runTestCases(3, 4);
 console.log("done.");
 
 // node.js get keypress
