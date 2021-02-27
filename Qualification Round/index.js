@@ -282,7 +282,31 @@ const AddCarsToStreet = function (streetIndexByName, carPaths) {
     }
 }
 
+const simulateByIntersectionTraffic = function (intersections, streetIndexByName, carPaths) {
+    let schedule = {};
+    let _intersections = [...intersections];
+    //mutate streetsObject by adding respective cars on the street to the list
+    AddCarsToStreet(streetIndexByName, carPaths);
+    for (let intersection of _intersections) {
+        let incomingJunction = intersection.ID;
+        let streets = intersection.STREETS;
+        streets = streets.filter((street) => street.CARS && (street.CARS.length > 0));
+        for (street of streets) {
+            let trafficCount = street.CARS.length;
+            let { NAME } = street;
+            let TIME_TAKEN = trafficCount;
+            let scheduleInfo = { NAME, TIME_TAKEN }
+            //keep traffic light for street on for trafficCount secs
+            if (!schedule[incomingJunction])
+                schedule[incomingJunction] = [];
 
+            schedule[incomingJunction].push(scheduleInfo);
+            //simulationTime += TIME_TAKEN;
+        }
+    }
+
+    return schedule;
+}
 
 const simulateByStreetTraffic = function (streetIndexByName, streets, carPaths, intersections, durationOfSimulation) {
     let schedule = {};
@@ -314,6 +338,7 @@ const simulateByStreetTraffic = function (streetIndexByName, streets, carPaths, 
 const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections, streetIndexByName) {
     let simulationTime = 0, schedule = {};
     schedule = simulateByStreetTraffic(streetIndexByName, streets, carPaths, intersections, durationOfSimulation);
+    //schedule = simulateByIntersectionTraffic(intersections, streetIndexByName, carPaths);
 
     //let _carPaths = [...carPaths];
     //_carPaths.sort(function (a, b) {
@@ -418,7 +443,7 @@ const fnTrafficSignalling = function (durationOfSimulation, noOfIntersection, Ca
 //run test cases 
 console.clear();
 console.log("running.......");
-runTestCases(0,6);
+runTestCases(3,4);
 console.log("done.");
 
 // node.js get keypress
