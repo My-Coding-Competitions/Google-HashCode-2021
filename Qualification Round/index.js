@@ -61,11 +61,23 @@ const processData = (input, test) => {
     //end parse data input into proper data structure for data-processing
 
     let result = [], outputFormat;
+    const numOfRuns = 1;
+    let _maxScore = 0;
     //pass input into BusinessLogic (replace name as appropriate)
-    result = fnTrafficSignalling(...dataStructure/*args*/);
+    for (let i = 0; i < numOfRuns; i++) {
+        //console.log("runnning...", i + 1);
+        let localResult = fnTrafficSignalling(...dataStructure/*args*/);
 
-    const perfArgs = [4, 2, 1, 6].map((i) => dataStructure[i]);
-    const performance = resultPerformance(result, ...perfArgs);
+        const perfArgs = [4, 2, 0, 6].map((i) => dataStructure[i]);
+        const performance = resultPerformance(localResult, ...perfArgs);
+        //console.log(performance);
+        const [score, maxScore] = performance;
+        if (score > _maxScore) {
+            _maxScore = score;
+            result = localResult;
+            console.log(`score => ${score}/${maxScore}, percentage Score => ${(score / maxScore) * 100}%`);
+        }
+    }
     //console.log(performance);
     outputFormat = formatOutputData(result);
     return outputFormat;
@@ -118,17 +130,62 @@ const parseDataSet = function (_datasets, cb) {
  * It compares scores of all books in the system(maxScore) to the overall score of books scanned(score).
  */
 const resultPerformance = function (result, carPaths, carBonus, durationOfSimulation, streetIndexByName) {
-    let maxScore = carPaths.reduce(function (acc, cur) {
-        const path = cur.PATHS;
-        const totalTime = path.reduce((acc, street) => acc + streetIndexByName[street].TIME_TAKEN, 0) - path[0];
-        const points = carBonus * (durationOfSimulation - totalTime);
+    let maxScore = computeScoreByCarPaths(carPaths, carBonus, durationOfSimulation, streetIndexByName);
+    let scheduledCarPaths = createCarPathsFromSchedule(result, streetIndexByName);
+    //remove cars that coudnt complete their journey
+    //And append last street to completed journey to compute score correctly
+    scheduledCarPaths = scheduledCarPaths.filter((carObj, i) => {
+        const mainCarPathSize = carPaths[i].PATHS.length - 1;
+        const journeyIsCompleted = carObj.PATHS.length === mainCarPathSize;
+        const lastStreet = carPaths[i].PATHS[mainCarPathSize]; //same as lastStreet Index
+        if (journeyIsCompleted)
+            carObj.PATHS.push(lastStreet);
 
+        return journeyIsCompleted;
+    });
+    //compute score
+    let score = computeScoreByCarPaths(scheduledCarPaths, carBonus, durationOfSimulation, streetIndexByName);
+
+    //console.log(`Simulation Duration => ${durationOfSimulation}`);
+
+    return [score, maxScore, (score / maxScore) * 100];
+}
+
+const createCarPathsFromSchedule = function (schedule, streetIndexByName) {
+    let carPaths = [];
+    let _schedule;
+    let totalDuration = 0;
+    for (_schedule of schedule) {
+        const { STREETS } = _schedule;
+        let street;
+        for (street of STREETS) {
+            const { NAME } = street;
+            totalDuration += street.TIME_TAKEN;
+            const streetObj = streetIndexByName[NAME];
+            const cars = streetObj.CARS;
+            let car;
+            for (car of cars) {
+                if (!carPaths[car])
+                    carPaths[car] = { PATHS: [] };
+                carPaths[car].PATHS.push(NAME);
+            }
+        }
+    }
+    //console.log("schedule Duration => ", totalDuration);
+    return carPaths;
+}
+const computeScoreByCarPaths = function (carPaths, carBonus, durationOfSimulation, streetIndexByName) {
+    const score = carPaths.reduce(function (acc, cur) {
+        const path = cur.PATHS;
+        let totalTime = path.reduce((acc, street) => acc + streetIndexByName[street].TIME_TAKEN, 0) - streetIndexByName[path[0]].TIME_TAKEN;
+        if (totalTime > durationOfSimulation)
+            totalTime = null; //so bonus point for that
+
+        const points = (!totalTime) ? 0 : carBonus + (durationOfSimulation - totalTime);
         return acc + points;
     }, 0);
 
-    let score = 0;
-
-    return [score, maxScore, (score / maxScore) * 100];
+    return score;
 }
 
 /**
@@ -211,78 +268,120 @@ const fakeSimulation = function (durationOfSimulation, noOfIntersection, CarBonu
     return result;
 }
 
-const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections, streetIndexByName) {
-    let simulationTime, schedule;
+const AddCarsToStreet = function (streetIndexByName, carPaths) {
+    let street, carIndex, car, i;
+    for ([carIndex, car] of carPaths.entries()) {
 
-    schedule = {};
-    simulationTime = 0;
-    let _carPaths = [...carPaths];
-    _carPaths.sort(function (a, b) {
-        const pathA = a.PATHS;
-        const pathB = b.PATHS;
-        //const priorityA = pathA.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathA[0]].TIME_TAKEN;
-        //const priorityB = pathB.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathB[0]].TIME_TAKEN;
-
-        //return priorityA - priorityB;
-        return pathA.length - pathB.length;
-    });
-
-    //start with FCFS
-    let carIndex = 0;
-    let currentCarJourneyCompleted = false;
-    let carProcessed = [];
-    while (simulationTime < durationOfSimulation) {
-        if (carIndex >= _carPaths.length) break;
-
-        if (currentCarJourneyCompleted) {
-            carProcessed.push(carIndex);
-            currentCarJourneyCompleted = false;
-        }
-
-        let car = _carPaths[carIndex++];
-        let { PATHS } = car;
-        let streetIndex;
-        let streetLength = PATHS.length;
-        for (streetIndex = 0; streetIndex < streetLength - 1; streetIndex++) {
-            if (simulationTime >= durationOfSimulation) break;
-
-            // console.log(simulationTime, durationOfSimulation);
-
-
-            let street = PATHS[streetIndex];
+        for ([i, street] of car.PATHS.entries()) {
+            if (i == (car.PATHS.length - 1)) continue;
             let streetObj = streetIndexByName[street];
-
-            let { NAME, TIME_TAKEN, INTERSECTION } = streetObj;
-            TIME_TAKEN = 1;
-            let inComingJunction = INTERSECTION[1];
-            let streetInfo = { NAME, TIME_TAKEN };
-
-            let remainingTime = durationOfSimulation - simulationTime;
-
-            if (TIME_TAKEN > remainingTime)
-                TIME_TAKEN = remainingTime;
-
-            simulationTime += TIME_TAKEN;
-
-
-            if (!schedule[inComingJunction])
-                schedule[inComingJunction] = [];
-
-            let _schedule = schedule[inComingJunction];
-            let index = _schedule.findIndex((x) => streetInfo.NAME == x.NAME);
-            if (_schedule.length && (index != -1)) {
-                _schedule[index].TIME_TAKEN += streetInfo.TIME_TAKEN;
-                //console.log("MULTIPLE STREET IN INTERSECTION FOUND");
-            }
-            else
-                schedule[inComingJunction].push(streetInfo);
-
+            if (!streetObj["CARS"])
+                streetObj["CARS"] = [];
+            streetObj["CARS"].push(carIndex);
         }
+    }
+}
 
-        currentCarJourneyCompleted = true;
+
+
+const simulateByStreetTraffic = function (streetIndexByName, streets, carPaths, intersections, durationOfSimulation) {
+    let schedule = {};
+    //mutate streetsObject by adding respective cars on the street to the list
+    AddCarsToStreet(streetIndexByName, carPaths);
+    //sort streets by traffic size in descending order
+    let _streets = streets.filter((a) => (a.CARS || []).length > 0);
+    shuffle(_streets);
+    //_streets.sort((a, b) => b.CARS.length - a.CARS.length);
+    let street, simulationTime = 0;
+    for (street of _streets) {
+        //if (simulationTime >= durationOfSimulation) break;
+        let incomingJunction = street.INTERSECTION[1];
+        let trafficCount = street.CARS.length;
+        let { NAME } = street;
+        let TIME_TAKEN = trafficCount;
+        let scheduleInfo = { NAME, TIME_TAKEN }
+        //keep traffic light for street on for trafficCount secs
+        if (!schedule[incomingJunction])
+            schedule[incomingJunction] = [];
+
+        schedule[incomingJunction].push(scheduleInfo);
+        simulationTime += TIME_TAKEN;
     }
 
-    console.log(`NO OF CARS PROCESSED => ${carProcessed.length}/${carPaths.length}`, `SIMULATION RUN TIME => ${simulationTime}/${durationOfSimulation}`);
+    return schedule;
+}
+
+const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections, streetIndexByName) {
+    let simulationTime = 0, schedule = {};
+    schedule = simulateByStreetTraffic(streetIndexByName, streets, carPaths, intersections, durationOfSimulation);
+
+    //let _carPaths = [...carPaths];
+    //_carPaths.sort(function (a, b) {
+    //    const pathA = a.PATHS;
+    //    const pathB = b.PATHS;
+    //    //const priorityA = pathA.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathA[0]].TIME_TAKEN;
+    //    //const priorityB = pathB.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathB[0]].TIME_TAKEN;
+
+    //    //return priorityA - priorityB;
+    //    return pathA.length - pathB.length;
+    //});
+
+    ////start with FCFS
+    //let carIndex = 0;
+    //let currentCarJourneyCompleted = false;
+    //let carProcessed = [];
+    //while (simulationTime < durationOfSimulation) {
+    //    if (carIndex >= _carPaths.length) break;
+
+    //    if (currentCarJourneyCompleted) {
+    //        carProcessed.push(carIndex);
+    //        currentCarJourneyCompleted = false;
+    //    }
+
+    //    let car = _carPaths[carIndex++];
+    //    let { PATHS } = car;
+    //    let streetIndex;
+    //    let streetLength = PATHS.length;
+    //    for (streetIndex = 0; streetIndex < streetLength - 1; streetIndex++) {
+    //        if (simulationTime >= durationOfSimulation) break;
+
+    //        // console.log(simulationTime, durationOfSimulation);
+
+
+    //        let street = PATHS[streetIndex];
+    //        let streetObj = streetIndexByName[street];
+
+    //        let { NAME, TIME_TAKEN, INTERSECTION } = streetObj;
+    //        TIME_TAKEN = 1;
+    //        let inComingJunction = INTERSECTION[1];
+    //        let streetInfo = { NAME, TIME_TAKEN };
+
+    //        let remainingTime = durationOfSimulation - simulationTime;
+
+    //        if (TIME_TAKEN > remainingTime)
+    //            TIME_TAKEN = remainingTime;
+
+    //        simulationTime += TIME_TAKEN;
+
+
+    //        if (!schedule[inComingJunction])
+    //            schedule[inComingJunction] = [];
+
+    //        let _schedule = schedule[inComingJunction];
+    //        let index = _schedule.findIndex((x) => streetInfo.NAME == x.NAME);
+    //        if (_schedule.length && (index != -1)) {
+    //            _schedule[index].TIME_TAKEN += streetInfo.TIME_TAKEN;
+    //            //console.log("MULTIPLE STREET IN INTERSECTION FOUND");
+    //        }
+    //        else
+    //            schedule[inComingJunction].push(streetInfo);
+
+    //    }
+
+    //    currentCarJourneyCompleted = true;
+    //}
+
+    //console.log(`NO OF CARS PROCESSED => ${carProcessed.length}/${carPaths.length}`, `SIMULATION RUN TIME => ${simulationTime}/${durationOfSimulation}`);
 
 
     let result = [], junction;
@@ -319,7 +418,7 @@ const fnTrafficSignalling = function (durationOfSimulation, noOfIntersection, Ca
 //run test cases 
 console.clear();
 console.log("running.......");
-runTestCases(3, 4);
+runTestCases(0,6);
 console.log("done.");
 
 // node.js get keypress
