@@ -217,23 +217,27 @@ const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarB
     schedule = {};
     simulationTime = 0;
     let _carPaths = [...carPaths];
-    _carPaths.sort(function (a, b) {
+    _carPaths.forEach(function (a,i) {
         const pathA = a.PATHS;
-        const pathB = b.PATHS;
-        //const priorityA = pathA.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathA[0]].TIME_TAKEN;
-        //const priorityB = pathB.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathB[0]].TIME_TAKEN;
-
-        //return priorityA - priorityB;
-        return pathA.length - pathB.length;
+        console.log(`car ${i} => `, pathA.length);
     });
+    //console.log(_carPaths);
+    shuffle(_carPaths);
+    //_carPaths.sort(function (a, b) {
+    //    const pathA = a.PATHS;
+    //    const pathB = b.PATHS;
+    //    //const priorityA = pathA.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathA[0]].TIME_TAKEN;
+    //    //const priorityB = pathB.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathB[0]].TIME_TAKEN;
+
+    //    //return priorityA - priorityB;
+    //    return pathA.length - pathB.length;
+    //});
 
     //start with FCFS
     let carIndex = 0;
     let currentCarJourneyCompleted = false;
     let carProcessed = [];
-    while (simulationTime < durationOfSimulation) {
-        if (carIndex >= _carPaths.length) break;
-
+    while (carIndex < _carPaths.length) {
         if (currentCarJourneyCompleted) {
             carProcessed.push(carIndex);
             currentCarJourneyCompleted = false;
@@ -244,7 +248,7 @@ const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarB
         let streetIndex;
         let streetLength = PATHS.length;
         for (streetIndex = 0; streetIndex < streetLength - 1; streetIndex++) {
-            if (simulationTime >= durationOfSimulation) break;
+            //if (simulationTime >= durationOfSimulation) break;
 
             // console.log(simulationTime, durationOfSimulation);
 
@@ -319,7 +323,7 @@ const fnTrafficSignalling = function (durationOfSimulation, noOfIntersection, Ca
 //run test cases 
 console.clear();
 console.log("running.......");
-runTestCases(3, 4);
+runTestCases(3,4);
 console.log("done.");
 
 // node.js get keypress
