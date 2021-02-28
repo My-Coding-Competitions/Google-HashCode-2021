@@ -170,6 +170,20 @@ const shuffle = function (array) {
     }
 }
 
+const AddCarsToStreet = function (streetIndexByName, carPaths) {
+    let street, carIndex, car, i;
+    for ([carIndex, car] of carPaths.entries()) {
+
+        for ([i, street] of car.PATHS.entries()) {
+            if (i == (car.PATHS.length - 1)) continue;
+            let streetObj = streetIndexByName[street];
+            if (!streetObj["CARS"])
+                streetObj["CARS"] = [];
+            streetObj["CARS"].push(carIndex);
+        }
+    }
+}
+
 const fakeSimulation = function (durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections) {
     let result = [];
     let simulationTime = durationOfSimulation;
@@ -212,6 +226,9 @@ const fakeSimulation = function (durationOfSimulation, noOfIntersection, CarBonu
 }
 
 const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarBonus, streets, carPaths, intersections, streetIndexByName) {
+    //Update street Objects
+    //AddCarsToStreet(streetIndexByName, carPaths);
+
     let simulationTime, schedule;
 
     schedule = {};
@@ -228,6 +245,7 @@ const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarB
         //return priorityA - priorityB;
         return pathA.length - pathB.length;
     });
+    console.log(_carPaths.slice(0,10));
 
     //start with FCFS
     let carIndex = 0;
