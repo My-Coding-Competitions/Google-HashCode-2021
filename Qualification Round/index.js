@@ -217,27 +217,25 @@ const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarB
     schedule = {};
     simulationTime = 0;
     let _carPaths = [...carPaths];
-    _carPaths.forEach(function (a,i) {
-        const pathA = a.PATHS;
-        console.log(`car ${i} => `, pathA.length);
-    });
     //console.log(_carPaths);
-    shuffle(_carPaths);
-    //_carPaths.sort(function (a, b) {
-    //    const pathA = a.PATHS;
-    //    const pathB = b.PATHS;
-    //    //const priorityA = pathA.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathA[0]].TIME_TAKEN;
-    //    //const priorityB = pathB.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathB[0]].TIME_TAKEN;
+    //shuffle(_carPaths);
+    _carPaths.sort(function (a, b) {
+        const pathA = a.PATHS;
+        const pathB = b.PATHS;
+        //const priorityA = pathA.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathA[0]].TIME_TAKEN;
+        //const priorityB = pathB.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathB[0]].TIME_TAKEN;
 
-    //    //return priorityA - priorityB;
-    //    return pathA.length - pathB.length;
-    //});
+        //return priorityA - priorityB;
+        return pathA.length - pathB.length;
+    });
 
     //start with FCFS
     let carIndex = 0;
     let currentCarJourneyCompleted = false;
     let carProcessed = [];
-    while (carIndex < _carPaths.length) {
+    while (simulationTime < durationOfSimulation) {
+        if (carIndex >= _carPaths.length) break;
+
         if (currentCarJourneyCompleted) {
             carProcessed.push(carIndex);
             currentCarJourneyCompleted = false;
@@ -323,7 +321,7 @@ const fnTrafficSignalling = function (durationOfSimulation, noOfIntersection, Ca
 //run test cases 
 console.clear();
 console.log("running.......");
-runTestCases(3,4);
+runTestCases(0,6);
 console.log("done.");
 
 // node.js get keypress
