@@ -61,12 +61,22 @@ const processData = (input, test) => {
     //end parse data input into proper data structure for data-processing
 
     let result = [], outputFormat;
+    let bestAverageSeconds = Infinity;
+    let bestPerformance;
     //pass input into BusinessLogic (replace name as appropriate)
-    result = fnTrafficSignalling(...dataStructure/*args*/);
-
-    const perfArgs = [4, 2, 1, 6].map((i) => dataStructure[i]);
-    const performance = resultPerformance(result, ...perfArgs);
-    //console.log(performance);
+    for (let i = 0; i < 10000; i++) {
+        let currentResult = fnTrafficSignalling(...dataStructure/*args*/);
+        //console.log(i);
+        const perfArgs = [4, 2, 1, 6].map((i) => dataStructure[i]);
+        const performance = resultPerformance(currentResult, ...perfArgs);
+        const [averageSeconds] = performance;
+        if (averageSeconds < bestAverageSeconds) {
+            result = currentResult;
+            bestAverageSeconds = averageSeconds;
+            bestPerformance = performance;
+        }
+    }
+    console.log(bestPerformance);
     outputFormat = formatOutputData(result);
     return outputFormat;
 }
@@ -118,19 +128,110 @@ const parseDataSet = function (_datasets, cb) {
  * It compares scores of all books in the system(maxScore) to the overall score of books scanned(score).
  */
 const resultPerformance = function (result, carPaths, carBonus, durationOfSimulation, streetIndexByName) {
-    let maxScore = carPaths.reduce(function (acc, cur) {
+    let inputStreetMap = carPaths.reduce(function (acc, cur) {
         const path = cur.PATHS;
-        const totalTime = path.reduce((acc, street) => acc + streetIndexByName[street].TIME_TAKEN, 0) - path[0];
-        const points = carBonus * (durationOfSimulation - totalTime);
+        for (let i = 0; i < path.length - 1; i++) {
+            const streetName = path[i];
+            if (!acc[streetName])
+                acc[streetName] = 0;
+            acc[streetName] += 1;
+        }
 
-        return acc + points;
-    }, 0);
+        return acc;
+    }, {});
+    let resultStreetMap = result.reduce(function (acc, cur, ) {
+        const path = cur.STREETS;
+        for (let i = 0; i < path.length; i++) {
+            const street = path[i];
+            const { NAME, TIME_TAKEN } = street;
+            acc[NAME] = TIME_TAKEN;
+        }
+        return acc;
+    }, {});
 
-    let score = 0;
+    generateQuickChart({
+        labels: Object.keys(inputStreetMap).sort((a, b) => inputStreetMap[a] - inputStreetMap[b]),
+        data: [
+            Object.values(inputStreetMap).sort((a, b) => a - b),
+            Object.values(resultStreetMap).sort((a, b) => a - b)
+        ]
+    });
 
-    return [score, maxScore, (score / maxScore) * 100];
+    //const str = JSON.stringify(chartObject);
+    //console.log();
+
+    const maxScore = computeTrafficLightAverageSeconds(inputStreetMap);
+    const score = computeTrafficLightAverageSeconds(resultStreetMap);
+
+    return [score, maxScore, (maxScore / score) * 100]; //inverse relationship(for time)
 }
 
+const generateQuickChart = function (res) {
+    const fnGenerateHexColor = () => {
+        const genRand = () => Math.floor(Math.random() * 256);
+        return ["rgb(", [genRand(), genRand(), genRand()].join(","), ")"].join("");
+    }
+
+    const size = -1 * (1000 || res.labels.length);
+    const labels = res.labels.slice(size);
+    const datasets = res.data.map((data, i) => {
+        const lbl = {
+            0: "Street Interval Time",
+            1: "Street Traffic Light Duration"
+        };
+        const datasetConfig = {
+            label: lbl[i],
+            fill: true,
+            borderColor: fnGenerateHexColor(),
+            //borderColor: `^getGradientFillHelper('vertical', ['${fnGenerateHexColor()}', '${fnGenerateHexColor()}', '${fnGenerateHexColor()}'])$`,
+            borderWidth: 5,
+            pointRadius: 0,
+        }
+
+        datasetConfig.data = data.slice(size);
+
+        return datasetConfig;
+    });
+
+    const obj = {
+        type: 'line',
+        data: {
+            labels,
+            datasets
+        },
+        options: {
+            responsive: true,
+            title: {
+                display: true,
+                text: 'Street Interval Time vs Street Traffic Light Schedule Duration',
+            },
+            scales: {
+            },
+        }
+    };
+
+    let strObj = JSON.stringify(obj);
+    strObj = strObj.replace(/\"\^getGradientFillHelper[^\$]+\$\"/g, (match) => match.substring(2, match.length - 2));
+
+    const strEncoded = encodeURI(strObj);
+
+    const url = `https://quickchart.io/chart?c=${strEncoded}`;
+    console.log(url);
+
+    const start = (process.platform == 'darwin' ? 'open' : process.platform == 'win32' ? 'start' : 'xdg-open');
+    require('child_process').exec(start + ' ' + url, { maxBuffer: 1024 * 5000 }); //allocate buffer size to 500kb
+}
+
+const computeTrafficLightAverageSeconds = function (streetMap) {
+    let streetName, street;
+    let totalSeconds = 0, streetCount = 0;
+    for (streetName in streetMap) {
+        totalSeconds += streetMap[streetName];
+        streetCount++;
+    }
+
+    return (totalSeconds / streetCount);
+}
 /**
  * 
  * @param {number[][]} result - book scanning algorithm output(resultFormat => [[libIndex, len(booksScanned), booksScanned]]).
@@ -235,24 +336,23 @@ const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarB
     simulationTime = 0;
     let _carPaths = [...carPaths];
     //console.log(_carPaths);
-    //shuffle(_carPaths);
-    _carPaths.sort(function (a, b) {
-        const pathA = a.PATHS;
-        const pathB = b.PATHS;
-        //const priorityA = pathA.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathA[0]].TIME_TAKEN;
-        //const priorityB = pathB.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathB[0]].TIME_TAKEN;
+    shuffle(_carPaths);
+    //dataset D => best result with shuffling
+    //_carPaths.sort(function (a, b) {
+    //    const pathA = a.PATHS;
+    //    const pathB = b.PATHS;
+    //    //const priorityA = pathA.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathA[0]].TIME_TAKEN;
+    //    //const priorityB = pathB.reduce((acc, cur) => acc + streetIndexByName[cur].TIME_TAKEN, 0) - streetIndexByName[pathB[0]].TIME_TAKEN;
 
-        //return priorityA - priorityB;
-        return pathA.length - pathB.length;
-    });
-    console.log(_carPaths.slice(0,10));
+    //    //return priorityA - priorityB;
+    //    return pathA.length - pathB.length;
+    //});
 
-    //start with FCFS
     let carIndex = 0;
     let currentCarJourneyCompleted = false;
     let carProcessed = [];
-    while (simulationTime < durationOfSimulation) {
-        if (carIndex >= _carPaths.length) break;
+    while (carIndex < _carPaths.length) {
+        //if (carIndex >= _carPaths.length) break;
 
         if (currentCarJourneyCompleted) {
             carProcessed.push(carIndex);
@@ -302,12 +402,18 @@ const fnTrafficSimulate = function (durationOfSimulation, noOfIntersection, CarB
         currentCarJourneyCompleted = true;
     }
 
-    console.log(`NO OF CARS PROCESSED => ${carProcessed.length}/${carPaths.length}`, `SIMULATION RUN TIME => ${simulationTime}/${durationOfSimulation}`);
+    //console.log(`NO OF CARS PROCESSED => ${carProcessed.length}/${carPaths.length}`, `SIMULATION RUN TIME => ${simulationTime}/${durationOfSimulation}`);
 
 
     let result = [], junction;
     for (junction in schedule) {
         let streetInfo = schedule[junction];
+        for (let street of streetInfo) {
+            let trafficDist = Math.floor(Math.log(street.TIME_TAKEN) / Math.log(3.00));
+            //let trafficDist = Math.floor(Math.sqrt(street.TIME_TAKEN));
+            let trafficLightDuration = Math.max(1, Math.min(trafficDist, durationOfSimulation));
+            street.TIME_TAKEN = trafficLightDuration;
+        }
         result.push({
             "ID": junction,
             "STREETS": streetInfo
@@ -339,7 +445,7 @@ const fnTrafficSignalling = function (durationOfSimulation, noOfIntersection, Ca
 //run test cases 
 console.clear();
 console.log("running.......");
-runTestCases(0,6);
+runTestCases(3,4);
 console.log("done.");
 
 // node.js get keypress
