@@ -179,7 +179,7 @@ const computeScoreByCarPaths = function (carPaths, carBonus, durationOfSimulatio
         const path = cur.PATHS;
         let totalTime = path.reduce((acc, street) => acc + streetIndexByName[street].TIME_TAKEN, 0) - streetIndexByName[path[0]].TIME_TAKEN;
         if (totalTime > durationOfSimulation)
-            totalTime = null; //so bonus point for that
+            totalTime = null; //no bonus point for that
 
         const points = (!totalTime) ? 0 : carBonus + (durationOfSimulation - totalTime);
         return acc + points;
@@ -312,17 +312,19 @@ const simulateByStreetTraffic = function (streetIndexByName, streets, carPaths, 
     let schedule = {};
     //mutate streetsObject by adding respective cars on the street to the list
     AddCarsToStreet(streetIndexByName, carPaths);
-    //sort streets by traffic size in descending order
     let _streets = streets.filter((a) => (a.CARS || []).length > 0);
-    shuffle(_streets);
-    //_streets.sort((a, b) => b.CARS.length - a.CARS.length);
+    //shuffle(_streets);
+    //sort streets by traffic size in descending order
+    _streets.sort((a, b) => b.CARS.length - a.CARS.length);
     let street, simulationTime = 0;
     for (street of _streets) {
         //if (simulationTime >= durationOfSimulation) break;
         let incomingJunction = street.INTERSECTION[1];
-        let trafficCount = street.CARS.length;
+        let trafficCount = street.CARS.length * 2;
         let { NAME } = street;
-        let TIME_TAKEN = trafficCount;
+        //let TIME_TAKEN = trafficCount;
+        let TIME_TAKEN = Math.max(Math.floor(Math.sqrt(trafficCount)),1);
+        //let TIME_TAKEN = Math.max(Math.floor(Math.log(trafficCount)/Math.log(2.86)), 1);
         let scheduleInfo = { NAME, TIME_TAKEN }
         //keep traffic light for street on for trafficCount secs
         if (!schedule[incomingJunction])
@@ -443,7 +445,7 @@ const fnTrafficSignalling = function (durationOfSimulation, noOfIntersection, Ca
 //run test cases 
 console.clear();
 console.log("running.......");
-runTestCases(3,4);
+runTestCases(1,4);
 console.log("done.");
 
 // node.js get keypress
