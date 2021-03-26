@@ -24,10 +24,10 @@ Run `npm start` on your cli.
 
 # Result
 ## Points Scored
-![Judge System Score](Solution_Score_and_Rank/solutionScore.png)
+![Judge System Score](Solution_Score_and_Rank/Screenshot%20(15).png)
 
 ## Score Rank in Nigeria
-![Judge System Rank in Nigeria](Solution_Score_and_Rank/scoreRankInNigeria.png)
+![Judge System Rank in Nigeria](Solution_Score_and_Rank/Screenshot%20(16).png)
 
 ## Score Rank in the World
-![Judge System Rank in the World](Solution_Score_and_Rank/scoreRankInTheWorld.png)
+![Judge System Rank in the World](Solution_Score_and_Rank/Screenshot%20(17).png)
